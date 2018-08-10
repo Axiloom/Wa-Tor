@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 import java.util.Arrays;
+import java.io.*;
+import java.util.*;
 
 //////////////////// ALL ASSIGNMENTS INCLUDE THIS SECTION /////////////////////
 //
@@ -94,7 +96,20 @@ public class WaTor {
 		//Ask user if they would like to load simulation parameters from a file. 
 		//If the user enters a y or Y as the only non-whitespace characters
 		//then prompt for filename and call loadSimulationParameters
-		//TODO in Milestone 3
+		
+		System.out.print("Do you want to load simulation parameters from a file (y/n): ");
+		String selection = input.nextLine().trim().toLowerCase();
+		
+		boolean fileLoaded = false;
+		
+		if (selection.contains("y")) {
+			System.out.print("Enter filename to load: ");
+			String filename = input.nextLine().trim();
+			simulationParameters = loadSimulationParameters(filename);
+			if (simulationParameters != null) {
+				fileLoaded = true;
+			}
+		}
 		
 		//prompts the user to enter the simulation parameters
 		if ( simulationParameters == null) {
@@ -127,7 +142,10 @@ public class WaTor {
 		sharks = new int[oceanHeight][oceanWidth];
 		sharksMoved = new boolean[oceanHeight][oceanWidth];
 		starve = new int[oceanHeight][oceanWidth];
-
+		
+		//create arrayList to keep track of history																					FIXME
+		ArrayList<int[]> history = new ArrayList<int[]>();
+		
 		//make sure fish, sharks and starve arrays are empty (call emptyArray)
 		//TODO Milestone 1
 		emptyArray(fish);
@@ -144,8 +162,11 @@ public class WaTor {
 		int numFish = countCreatures(fish);
 		int numSharks = countCreatures(sharks);
 		
+		history.add(new int[]{currentChronon,numFish,numSharks});
+		
 		//simulation ends when no more sharks or fish remain
 		boolean simulationEnd = numFish <= 0 || numSharks <= 0;
+		
 		while (!simulationEnd){
 
 			//print out the locations of the fish and sharks
@@ -156,39 +177,62 @@ public class WaTor {
 			
 			String response = input.nextLine().trim();
 			
-			//Enter advances to next chronon, a number
+			if (response.equalsIgnoreCase("end")) {
+				break; //leave simulation loop
+			}
+   			
 			if (response.isEmpty()) {
+				//clear fishMoved and sharksMoved from previous chronon
+				clearMoves(fishMoved);
+				clearMoves(sharksMoved);
+					
+				//call fishSwimAndBreed
+				fishSwimAndBreed(fish, sharks, fishMoved, fishBreed, randGen);
+					
+				//call sharksHuntAndBreed
+				sharksHuntAndBreed(fish, sharks, fishMoved, sharksMoved, sharksBreed, starve, sharksStarve, randGen);
+					
+				//increment current chronon and count the current number of fish and sharks
 				currentChronon++;
+				numFish = countCreatures(fish);
+				numSharks = countCreatures(sharks);
+				
+				
+				history.add(new int[]{currentChronon,numFish,numSharks});
+				
+				//if all the fish or sharks are gone then end simulation
+				simulationEnd = numFish <= 0 || numSharks <= 0;
 				continue;
 			}
 			
+			// Turns the string value into an integer
+			int value = Integer.parseInt(response);
 			
-			//entered means run that many chronon, (TODO Milestone 2),
-			
-			//'end' will end the simulation
-
-			else if (response.equalsIgnoreCase("end")) {
-				break; //leave simulation loop
-			}
-   
-			//clear fishMoved and sharksMoved from previous chronon
-			clearMoves(fishMoved);
-			clearMoves(sharksMoved);
+			for (int i = 0 ; i < value ; i++) {
+				//clear fishMoved and sharksMoved from previous chronon
+				clearMoves(fishMoved);
+				clearMoves(sharksMoved);
+					
+				//call fishSwimAndBreed
+				//TODO Milestone 2
+				fishSwimAndBreed(fish, sharks, fishMoved, fishBreed, randGen);
+					
+				//call sharksHuntAndBreed
+				sharksHuntAndBreed(fish, sharks, fishMoved, sharksMoved, sharksBreed, starve, sharksStarve, randGen);
+					
+				//increment current chronon and count the current number of fish and sharks
+				currentChronon++;
+				numFish = countCreatures(fish);
+				numSharks = countCreatures(sharks);
 				
-			//call fishSwimAndBreed
-			//TODO Milestone 2
+				history.add(new int[]{currentChronon,numFish,numSharks});
 				
-			//call sharksHuntAndBreed
-			//TODO Milestone 2
-				
-			//increment current chronon and count the current number of fish and sharks
-			currentChronon++;
-			countCreatures(fish);
-			countCreatures(sharks);
-			
-			//if all the fish or sharks are gone then end simulation
-			simulationEnd = numFish <= 0 || numSharks <= 0;
-		};
+				//if all the fish or sharks are gone then end simulation
+				if (simulationEnd = numFish <= 0 || numSharks <= 0) {
+					break;
+				}
+			}	
+		}
 		
 		//print the final ocean contents
 		showFishAndSharks(currentChronon, fish, sharks);
@@ -209,9 +253,34 @@ public class WaTor {
 		//call saveSimulationParameters to actually save the parameters to the file.
 		//If saveSimulationParameters throws an IOException then catch it and
 		//repeat the code to prompt asking the user if they want to save
-		//the population chart.
-		//TODO Milestone 3
+		//the simulation parameters.
 		
+		boolean done = false;
+		String filename = "";
+		
+		while (!done && !fileLoaded) {
+			try {
+				System.out.print("Save simulation parameters (y/n): ");
+				
+				while (input.hasNextInt()) {
+					System.out.print("Would you like save parameters to a file (y/n): ");
+					input.next();
+				}
+
+				selection = input.nextLine().trim().toLowerCase();
+				
+				if (selection.contains("y")) {
+					System.out.print("Enter filename: ");
+					filename = input.nextLine().trim();
+					saveSimulationParameters(simulationParameters, filename);
+					done = true;
+				}
+				done = true;
+			}
+			catch (IOException e) {
+				System.out.print("Unable to save to: " + filename);
+			}
+		}
 		
 		//Always prompt the user to see if they would like to save a 
 		//population chart of the simulation.
@@ -222,9 +291,33 @@ public class WaTor {
 		//repeat the code to prompt asking the user if they want to save
 		//the population chart.
 		//TODO Milestone 3
-
-
-		input.close();
+		
+		done = false;
+	
+		while (!done) {
+			try {
+				System.out.print("Save population chart (y/n): ");
+				selection = input.nextLine().trim().toLowerCase();
+				
+				if (selection.contains("y")) {
+					System.out.print("Enter filename: ");
+					filename = input.nextLine().trim();
+					// Print array
+					//for (int[] array : history) {
+					//	System.out.println(Arrays.toString(array));
+					//}
+					//
+					savePopulationChart(simulationParameters, history, oceanWidth, oceanHeight, filename);
+					done = true;
+				}
+			}
+			catch (IOException e) {
+				System.out.print("Unable to save to: " + filename);
+				continue;
+			}
+		}
+		
+		input.close();		
 	}
 	
 	/**
@@ -606,16 +699,18 @@ public class WaTor {
 			// Increase number of attempts	
 			attempts++;	
 			
-			// If the random row and col fit, place a fish
-			if (fish[row][col] == Config.EMPTY) {
-				fish[row][col] = randGen.nextInt(fishBreed + 1);
-				
-				// If attempts reach Config.MAX_PLACE_ATTEMPTS, place last fish and close loop
-				if (attempts == Config.MAX_PLACE_ATTEMPTS) {
+			// If attempts reach Config.MAX_PLACE_ATTEMPTS, place last fish and close loop
+			if (attempts == Config.MAX_PLACE_ATTEMPTS) {
+				if (fish[row][col] == Config.EMPTY){
 					fish[row][col] = randGen.nextInt(fishBreed + 1);
 					numFishPlaced++;
-					break;
-				}			
+				}
+				break;
+			}
+			
+			// If the random row and col fit, place a fish
+			if (fish[row][col] == Config.EMPTY) {
+				fish[row][col] = randGen.nextInt(fishBreed + 1);			
 				numFishPlaced++;
 				attempts = 0;
 			}
@@ -638,8 +733,8 @@ public class WaTor {
 	 *    place the shark in that location, randomly choosing its age from 0 up to 
 	 *    and including sharkBreed.
 	 * -- If the location is already occupied, generate another location and try again.
-	 * -- If a single shark is not placed after Config.MAX_PLACE_ATTEMPTS times, then stop trying
-	 *     to place the rest of the sharks.
+	 * -- On the Config.MAX_PLACE_ATTEMPTS try, whether or not the shark is successfully placed,
+	 *    stop trying to place additional sharks.	 
 	 * -- Return the number of sharks actually placed.     *     
 	 * 
 	 * @param fish The array containing all the ages of all the fish.
@@ -658,29 +753,28 @@ public class WaTor {
 			
 		while (attempts <= Config.MAX_PLACE_ATTEMPTS && numSharksPlaced != startingSharks) {
 				
-			// Generate random row and col
+			// Generates new random numbers
 			int row = randGen.nextInt(sharks.length);
 			int col = randGen.nextInt(sharks[0].length);
+			
+			attempts++;	
+			
+			// Will place one last shark before returning
+			if (attempts == Config.MAX_PLACE_ATTEMPTS) {
+				if (fish[row][col] == Config.EMPTY && sharks[row][col] == Config.EMPTY) {
+					sharks[row][col] = randGen.nextInt(sharksBreed + 1);
+					numSharksPlaced++;	
+				}
+				break;
+			}	
 				
-			// Increase number of attempts
-			attempts++;
-				
-			// If the random row and col fit, place a shark	
 			if (fish[row][col] == Config.EMPTY && sharks[row][col] == Config.EMPTY) {
 				sharks[row][col] = randGen.nextInt(sharksBreed + 1);
-				
-				// If attempts reach Config.MAX_PLACE_ATTEMPTS, place last shark and close loop
-				if (attempts == Config.MAX_PLACE_ATTEMPTS) {
-					sharks[row][col] = randGen.nextInt(sharksBreed + 1);
-					numSharksPlaced++;
-					break;
-				}
-				
 				numSharksPlaced++;
 				attempts = 0;
 				continue;
 			}
-		}	
+		}
 		return numSharksPlaced;
 	}
 	
@@ -815,25 +909,28 @@ public class WaTor {
 	 * 
 	 * ****** This is a key method with a number of parameters. *****
 	 * **************************************************************
-	 * 1) 	Check that the parameters are valid prior to writing the code to move a fish. 
-	 * 			- The parameters are checked in the order they appear in the parameter list.
-	 *  
-	 * 2) 	If any of the array parameters are null or not at least 1 element in size, then 
-	 * 		a helpful error message is printed out and -1 is returned. An example message for 
-	 * 		an invalid fish array is "fishSwimAndBreed Invalid fish array: Null or not at least 1 in 
-	 * 		each dimension.". 
-	 *			- 	Testing will not check the content of the message but will check whether
-	 * 				the correct number is returned for the situation.
-	 * 
-	 *			-	Passing this test means we know fish[0] exists and so won't cause a runtime error 
-	 *				and also that fish[0].length is the width. 
 	 *
-	 *			-	For this project it is safe to assume rectangular arrays (arrays where all the rows are the same length).
+	 *___ERROR MESSAGES___
+	 * 1) 	Check that the parameters are valid prior to writing the code to move a fish. 
+	 * 			- 	The parameters are checked in the order they appear in the parameter list.
+	 *  
+	 * 			-	If any of the array parameters are null or not at least 1 element in size, then 
+	 * 				a helpful error message is printed out and -1 is returned. An example message for 
+	 * 				an invalid fish array is "fishSwimAndBreed Invalid fish array: Null or not at least 1 in 
+	 * 				each dimension.". 
+	 *
+	 *				- 	Testing will not check the content of the message but will check whether
+	 * 					the correct number is returned for the situation.
 	 * 
-	 * 4)	If fishBreed is less than zero a helpful error message is printed out
+	 *				-	Passing this test means we know fish[0] exists and so won't cause a runtime error 
+	 *					and also that fish[0].length is the width. 
+	 *
+	 *				-	For this project it is safe to assume rectangular arrays (arrays where all the rows are the same length).
+	 * 
+	 * 2)	If fishBreed is less than zero, a helpful error message is printed out
 	 * 		and -2 is returned.
 	 * 
-	 * 5) 	If randGen is null then a helpful error message is printed out and -3 is returned.
+	 * 3) 	If randGen is null then a helpful error message is printed out and -3 is returned.
 	 *  
 	 *
 	 * Algorithm:
@@ -858,25 +955,49 @@ public class WaTor {
 	 */
 	public static int fishSwimAndBreed(int[][] fish, int[][] sharks, boolean[][] fishMove, int fishBreed, Random randGen){
 		
-		int<int[]> storeFreeSpaces = new int<int[]>;
-		int[] randomArray = new int[2]; // Used to store a random storeFreeSpaces array
+		int[] randomArray = new int[2]; // Used to store that random coordinate into an array
+		
+		// If the array is invalid. return -1
+		if (fish == null || sharks == null || fishMove == null || fish.length <= 0 || fish[0].length <= 0 || sharks.length <= 0 || sharks[0].length <= 0 || fishMove.length <= 0 || fishMove[0].length <= 0) {
+			System.out.println("fishSwimAndBreed Invalid fish array: Null or not at least 1 in each dimension.");
+			return -1;
+		}
+		// If the fish has no life, return -2
+		if (fishBreed < 0) {
+			System.out.println("fishSwimAndBreed Invalid fishBreed: fishBreed is less than one.");
+			return -2;
+		}
+		// If rangGen is null, return -3
+		if (randGen == null) {
+			System.out.println("fishSwimAndBreed Invalid randGen: randGen is null.");
+			return -3;
+		}
 		
 		for (int row = 0 ; row < fish.length ; row++) {
 			for (int col = 0 ; col < fish[row].length ; col++) {
-				if (fish[row][col] == null || fish[row].length <= 0 || fish.length <= 0) {
-					System.out.println("fishSwimAndBreed Invalid fish array: Null or not at least 1 in each dimension.");
-					return -1;
-				}
-				if (fish[row][col] != Config.EMPTY) {
-					storeFreeSpaces = unoccupiedPositions(fish, sharks, row, col);
-					fish[row][col] = Config.EMPTY; // Sets the index where the fish used to be to empty
-					randomArray = storeFreeSpaces.get(randGen.nextInt(storeFreeSpaces.size()));
-					fish[randomArray[0]][randomArray[1]] = 0;
+				
+				// Checkes to see if the fish has already been moved
+				if (fishMove[row][col] == false && fish[row][col] != Config.EMPTY) {
+					
+					// chooses a random available location on the board and stores it to randomArray
+					randomArray = chooseMove(unoccupiedPositions(fish, sharks, row, col), randGen);
+					
+					// If the there are no open place for the fish to move, call aFishStays
+					if (randomArray == null) {
+						aFishStays(fish, fishMove, row, col);
+					}
+						
+					else {
+						if (fish[row][col] >= fishBreed) {
+							aFishMovesAndBreeds(fish, fishMove, row, col, randomArray[0], randomArray[1]);
+						}
+						else {
+							aFishMoves(fish, fishMove, row, col, randomArray[0], randomArray[1]);
+						}
+					}
 				}
 			}
 		}
-			
-		unoccupiedPositions(fish, sharks, row, col);// Returns ArrayList<int[]> full of empty places surrounding a particular fish
 		return 0;
 	}
 
@@ -896,42 +1017,103 @@ public class WaTor {
 	 *      is the column.
 	 */
 	public static ArrayList<int[]> fishPositions(int[][] fish, int row, int col) {
-		ArrayList<int[]> fishPositions = new ArrayList<>();
 		
-		//TODO Milestone 2
+		
+		ArrayList<int[]> fishPositions = new ArrayList<>();
+
+		// Check above
+		if (row != 0) {
+			if (fish[row - 1][col] != Config.EMPTY) {
+				fishPositions.add(new int[]{row - 1,col});
+			}
+		}
+		else {
+			if (fish[fish.length - 1][col] != Config.EMPTY) {
+				fishPositions.add(new int[]{fish.length - 1,col});
+			}
+		}
+		
+		// Check below
+		if (row != fish.length - 1) {
+			if (fish[row + 1][col] != Config.EMPTY) {
+				fishPositions.add(new int[]{row + 1,col});
+				
+			}
+		}
+		else {
+			if (fish[0][col] != Config.EMPTY) {
+				fishPositions.add(new int[]{0,col});
+			}
+		}
+		
+		// Check left
+		if (col != 0) {
+			if (fish[row][col - 1] != Config.EMPTY) {
+				fishPositions.add(new int[]{row,col - 1});
+			}
+		}
+		else {
+			if (fish[row][fish[0].length - 1] != Config.EMPTY) {
+				fishPositions.add(new int[]{row,fish[0].length - 1});
+			}
+		}
+		
+		// Check right
+		if (col != fish[0].length - 1) {
+			if (fish[row][col + 1] != Config.EMPTY) {
+				fishPositions.add(new int[]{row,col + 1});
+			}
+		}
+		else {
+			if (fish[row][0] != Config.EMPTY) {
+				fishPositions.add(new int[]{row,0});
+			}
+		}
 		return fishPositions;
 	}
 
 	/**
 	 * This attempts to move each shark each chronon.  
 	 *
-	 * This is a key method with a number of parameters. Check that the parameters are valid 
-	 * prior to writing the code to move a shark. The parameters are checked in the order they
-	 * appear in the parameter list.  
-	 * If any of the array parameters are null or not at least 1 element in size then 
-	 * a helpful error message is printed out and -1 is returned. An example message for 
-	 * an invalid fish array is "sharksHuntAndBreed Invalid fish array: Null or not at least 1 in 
-	 * each dimension.". Testing will not check the content of the message but will check whether
-	 * the correct number is returned for the situation.  Passing this test means we know fish[0]
-	 * exists and so won't cause a runtime error and also that fish[0].length is the width. For this
-	 * project it is safe to assume rectangular arrays (arrays where all the rows are the same 
-	 * length).
-	 * If sharksBreed or sharksStarve are less than zero a helpful error message is printed out
-	 * and -2 is returned. 
-	 * If randGen is null then a helpful error message is printed out and -3 is returned.
+	 * This is a key method with a number of parameters. 
+	 * 		1) 	Check that the parameters are valid prior to writing the code to move a shark. 
+	 *
+	 *		2) 	The parameters are checked in the order they appear in the parameter list.  
+	 *
+	 * 		3) 	If any of the array parameters are null or not at least 1 element in size then 
+	 * 			a helpful error message is printed out and -1 is returned. An example message for 
+	 * 			an invalid fish array is "sharksHuntAndBreed Invalid fish array: Null or not at least 1 in 
+	 * 			each dimension.". 
+	 *
+	 * 		4)	Testing will not check the content of the message but will check whether
+	 * 			the correct number is returned for the situation.  
+	 *
+	 *		5)	Passing this test means we know fish[0] exists and so won't cause a runtime error and also that fish[0].length is the width.
+	 *		
+	 *		6)	For this project it is safe to assume rectangular arrays (arrays where all the rows are the same 
+	 * 			length).
+	 *		
+	 *		7)	If sharksBreed or sharksStarve are less than zero a helpful error message is printed out
+	 *			and -2 is returned. 
+	 *		
+	 *		8)	If randGen is null then a helpful error message is printed out and -3 is returned.
 	 * 
 	 * Algorithm to move a shark:
-	 * for each shark that has not moved this chronon
-	 *     check to see if the shark has starved, if so call sharkStarves
-	 *     get the available positions of neighboring fish (call fishPositions)
-	 *     if there are no neighboring fish to eat then determine available positions 
-	 *              (call unoccupiedPositions)
-	 *          choose a move (call chooseMove) and based on the move chosen
+	 *		1) 	for each shark that has not moved this chronon:
+	 *     			-	check to see if the shark has starved. if so, call sharkStarves
+	 *
+	 *     	2)	get the available positions of neighboring fish (call fishPositions)
+	 *			if there are no neighboring fish to eat, then determine available positions 
+	 *       	(call unoccupiedPositions).
+	 *
+	 *      3)	choose a move (call chooseMove) and based on the move chosen,
 	 *          call sharkStays, sharkMoves or sharkMovesAndBreeds appropriately, using
 	 *          the sharkBreed parameter to see if a shark breeds.
-	 *     else if there are neighboring fish then choose the move (call chooseMove),
+	 *
+	 *     	4)	else if there are neighboring fish then choose the move (call chooseMove),
 	 *          eat the fish (call sharkEatsFish or sharkEatsFishAndBreeds) appropriately.
-	 * return 0, meaning success.
+	 *
+	 * 		5)	return 0, meaning success.
 	 *         
 	 * @param fish The array containing all the ages of all the fish.
 	 * @param sharks The array containing all the ages of all the sharks.
@@ -945,16 +1127,78 @@ public class WaTor {
 	 *          starving to death.
 	 * @param randGen The instance of the Random number generator.
 	 * @return -1, -2, -3 for invalid parameters as specified above. After attempting to move all
-	 * sharks 0 is returned indicating success.
+	 * sharks, 0 is returned indicating success.
 	 */
 	public static int sharksHuntAndBreed(int[][] fish, int[][] sharks, boolean[][] fishMove,
 		boolean[][] sharksMove, int sharksBreed, int[][] starve, int sharksStarve, Random randGen) {
-		//TODO Milestone 2
+		
+		int[] randomArray = new int[2]; // Used to store that random coordinate into an array
+		
+		// If the array is invalid. return -1
+		if (fish == null || sharks == null || fishMove == null || sharksMove == null || starve == null || fish.length <= 0 || fish[0].length <= 0 || sharks.length <= 0 || sharks[0].length <= 0 || fishMove.length <= 0 || fishMove[0].length <= 0 || sharksMove.length <= 0 || sharksMove[0].length <= 0 || starve.length <= 0 || starve[0].length <= 0) {
+			System.out.println("sharksHuntAndBreed Invalid fish array: Null or not at least 1 in each dimension.");
+			return -1;
+		}
+		// If the shark has no life, return -2
+		if (sharksBreed < 0 || sharksStarve < 0) {
+			System.out.println("sharksHuntAndBreed Invalid sharksBreed or sharksStarve: sharksBreed or sharksStarve is less than one.");
+			return -2;
+		}
+		// If rangGen is null, return -3
+		if (randGen == null) {
+			System.out.println("fishSwimAndBreed Invalid randGen: randGen is null.");
+			return -3;
+		}
+		
+		for (int row = 0 ; row < sharks.length ; row++) {
+			for (int col = 0 ; col < sharks[row].length ; col++) {
+				
+				// Checkes to see if the shark has already been moved
+				if (sharksMove[row][col] == false && sharks[row][col] != Config.EMPTY) {
+					
+					// If the shark is starSved
+					if (starve[row][col] >= sharksStarve) {
+						sharkStarves(sharks, sharksMove, starve, row, col);
+						continue;
+					}
+					
+					if (fishPositions(fish, row, col).size() == 0){
+						randomArray = chooseMove(unoccupiedPositions(fish, sharks, row, col), randGen);
+						
+						// If the there are no open place for the shark to move, call aFishStays
+						if (randomArray == null) {
+							sharkStays(sharks, sharksMove, starve, row, col);
+						}
+							
+						else {
+							if (sharks[row][col] >= sharksBreed) {
+								sharkMovesAndBreeds(sharks, sharksMove, starve, row, col, randomArray[0], randomArray[1]);
+							}
+							else {
+								sharkMoves(sharks, sharksMove, starve, row, col, randomArray[0], randomArray[1]);
+							}
+						}
+						
+					}
+					
+					else {
+						randomArray = chooseMove(fishPositions(fish, row, col), randGen);
+						
+						if (sharks[row][col] == sharksBreed) {
+							sharkEatsFishAndBreeds(sharks, sharksMove, starve, fish, fishMove, row, col, randomArray[0], randomArray[1]);
+						}
+						else {
+							sharkEatsFish(sharks, sharksMove, starve, fish, fishMove, row, col, randomArray[0], randomArray[1]);
+						}
+					}
+				}
+			}
+		}	
 		return 0;
 	}
 	
 	/**
-	 * This looks up the specified paramName in this Config.SIM_PARAMS array,
+	 * This looks up the specified paramName in the Config.SIM_PARAMS array,
 	 * ignoring case.  If found then the array index is returned.
 	 * @param paramName The parameter name to look for, ignoring case.
 	 * @return The index of the parameter name if found, otherwise returns -1.
@@ -994,7 +1238,15 @@ public class WaTor {
 	 */
 	public static void saveSimulationParameters(int[] simulationParameters, String filename) throws IOException {
 
-		//TODO Milestone 3
+		// Creates a buffer to write to file
+		BufferedWriter writer = new BufferedWriter(new FileWriter(filename));
+		
+		for (int i = 0 ; i < Config.SIM_PARAMS.length ; i++) {
+			writer.write(Config.SIM_PARAMS[i] + "=" + simulationParameters[i] + "\n");
+		}
+		
+		writer.close();
+		
 	}    
 	
 	/**
@@ -1003,30 +1255,80 @@ public class WaTor {
 	 * this method is a parallel array containing the parameter values. The name corresponds to 
 	 * the value with the same index.
 	 * Algorithm:
-	 *      Try to open filename for reading. If the FileNotFoundException is thrown print the
-	 *      message printing out the filename without < > and return null;
-	 *      
-	 * File not found: <filename>
+	 *      1)	Try to open filename for reading. 
+	 *				-	If the FileNotFoundException is thrown print the following
+	 *      			message without < > and return null;
+	 *      				-	File not found: <filename>
 	 * 
-	 *      Read lines from the file as long as each line contains "=".  As soon as a line does not
-	 *      contain "=" then stop reading from the file. The order of the lines in the
-	 *      file is not significant.
-	 *      In a line the part before "=" is the name and the part after is the value.
-	 *      The separate method you wrote in P7 is helpful here.
-	 *      Find the index of the name within Config.SIM_PARAMS (call indexForParam).
-	 *      If the index is found then convert the value into an int and store in the corresponding 
-	 *          index in the array of int that will be returned from this method.
-	 *      If the index is not found then print out the message followed by the entire line
-	 *      without the < >.
-	 *      
-	 * Unrecognized: <line>
+	 *      2)	Read lines from the file as long as each line contains "=". 
+	 * 
+	 *			-	As soon as a line does not contain "=" then stop reading from the file. 
+	 *		
+	 *			-	The order of the lines in the file is not significant.
+	 *
+	 *      	-	In a line, the part before "=" is the name and the part after is the value.
+	 *
+	 *      		-	The 'separate' method you wrote in P7 is helpful here.
+	 *
+	 *      3)	Find the index of the name within Config.SIM_PARAMS (call indexForParam).
+	 *
+	 *      	-	If the index is found then convert the value into an int and store in the corresponding 
+	 *          	index in the array of int that will be returned from this method.
+	 *
+	 *      	-	If the index is not found then print out the message followed by the entire line
+	 *      		without the < >.
+	 * 					-	Unrecognized: <line>
 	 * 
 	 * @param filename The name of the from which to read simulation parameters.
 	 * @return The array of parameters.
 	 */
 	public static int[] loadSimulationParameters(String filename) {
+		
 		int[] params = null;
-		//TODO Milestone 3
+		// Config.SIM_PARAMS contains all the parameters to look for
+		
+		try {
+			
+			// Creates a buffer to read from file
+			BufferedReader reader = new BufferedReader(new FileReader(filename)); // used for actually reading file
+			
+			params = new int[Config.SIM_PARAMS.length];
+			
+			String line;
+			
+			// While there is another line to be read 
+			while ((line = reader.readLine()) != null && line.contains("=")) {
+				
+				String name = line.substring(0, line.indexOf("="));	// Name of parameter n
+				String value = line.substring(line.indexOf("=") + 1); // Value of parameter n
+				
+				// Find the index of the name within Config.SIM_PARAMS (call indexForParam).
+				int indexofParam = indexForParam(name);
+				
+				//	If the index is not found then print out the message
+				if (indexofParam == -1) {
+					System.out.println("Unrecognized: " + name + "=" + value);
+					continue; // FIXME (Do we break or continue?)
+				}
+				
+				//	If the index is found then convert the value into an int and store in the corresponding 
+				//	index in the array of int that will be returned from this method.
+				
+				int storeValue = Integer.parseInt(value);
+				
+				params[indexofParam] = storeValue;
+			}
+			reader.close();
+		} 
+		
+		catch (FileNotFoundException e) {
+			System.out.println("File not found: " + filename);
+			return null;
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		}
 		return params;
 	}  
 	
@@ -1060,7 +1362,7 @@ public class WaTor {
 	 * F  6,S  2    1)OO.... 
 	 *                ^^^^^^ 6 fish (the larger of sharks or fish is in the background)
 	 *                ^^ 2 sharks  
-	 *          ^^^^^ chronon 1
+	 *              ^ chronon 1
 	 *      ^^^^ the number of sharks        
 	 * ^^^^ the number of fish
 	 *                                      
@@ -1079,6 +1381,108 @@ public class WaTor {
 	 */
 	public static void savePopulationChart(int[]simulationParameters, ArrayList<int[]> history, 
 		int oceanWidth, int oceanHeight, String filename) throws IOException {
-		//TODO Milestone 3
+		
+		if (simulationParameters == null || history == null) {
+			System.out.println("ERROR");																			//FIXME (What error message should I print)
+			return;
+		}
+		
+		// Writes simulation parameters to file
+		BufferedWriter writer = new BufferedWriter(new FileWriter(filename));
+		
+		for (int i = 0 ; i < Config.SIM_PARAMS.length ; i++) {
+			writer.write(Config.SIM_PARAMS[i] + "=" + simulationParameters[i] + "\n");
+		}
+		writer.write("\n");
+		
+		
+		int units = (oceanWidth * oceanHeight)/Config.POPULATION_CHART_WIDTH;
+		
+		if ((oceanWidth * oceanHeight) < Config.POPULATION_CHART_WIDTH) {
+			units++;
+		}
+		
+		writer.write("Population Chart\nNumbers of fish(" + Config.FISH_MARK + ") and sharks(" + Config.SHARK_MARK + ") in units of " + units + ".\n");
+		
+		// For each array in the arraylist
+		for (int[] array : history) {
+			
+			String tally = "";
+			
+			writer.write(String.format("F%3d,S%3d%5d)", array[1], array[2], array[0]));
+			
+			// If fish and sharks are equal
+			if (array[1] == array[2]) {
+				for (int sharks = 0 ; sharks < Math.incrementExact(array[2] / units); sharks++) {
+					tally = tally + Config.SHARK_MARK;														// MAy need to addd "" before each one
+				}
+			}
+			
+			// If the fish are larger than sharks
+			else if (array[1] > array[2]) {
+			
+				if (array[2] % units == 0) {
+					for (int sharks = 1 ; sharks < Math.incrementExact(array[2] / units); sharks++) {
+						tally = tally + Config.SHARK_MARK;	
+					}
+				}
+				else {
+					for (int sharks = 0 ; sharks < Math.incrementExact(array[2] / units); sharks++) {
+						tally = tally + Config.SHARK_MARK;	
+					}
+				}
+				
+				// Check for division and place fish
+				if (array[1] % units == 0) {
+					for (int fish = ((array[1]/units) - Math.incrementExact(array[2]/units)) ; fish > 0 ; fish--) {
+						tally = tally + Config.FISH_MARK;
+					}
+				}
+				else if (array[2] % units == 0) {
+					for (int fish = (Math.incrementExact(array[1]/units) - (array[2]/units)) ; fish > 0 ; fish--) {
+						tally = tally + Config.FISH_MARK;
+					}
+				}
+				else {
+					for (int fish = (Math.incrementExact(array[1]/units) - Math.incrementExact(array[2]/units)) ; fish > 0 ; fish--) {
+						tally = tally + Config.FISH_MARK;
+					}
+				}
+			}
+			
+			// If the sharks are larger than fish
+			else { /// All good
+				if (array[1] % units == 0) { // good
+					for (int fish = 0 ; fish < (array[1] / units); fish++) {
+						tally = tally + Config.FISH_MARK;	
+					}
+				}
+				else {
+					for (int fish = 0 ; fish < Math.incrementExact(array[1] / units); fish++) {
+						tally = tally + Config.FISH_MARK;	
+					}
+				}
+				
+				// Check for division and place fish
+				if (array[1] % units == 0) {
+					for (int sharks = ((Math.incrementExact(array[2])/units) - (array[1]/units)) ; sharks >= 0 ; sharks--) {
+						tally = tally + Config.SHARK_MARK;
+					}
+				}
+				else if (array[2] % units == 0) {
+					for (int sharks = ((array[2]/units) - (Math.incrementExact(array[1]/units))) ; sharks > 0 ; sharks--) {
+						tally = tally + Config.SHARK_MARK;
+					}
+				}
+				else {
+					for (int sharks = (Math.incrementExact(array[2]/units) - Math.incrementExact(array[1]/units)) ; sharks > 0 ; sharks--) {
+						tally = tally + Config.SHARK_MARK;
+					}
+				}
+			}
+			writer.write(String.format("%-50s", tally));
+			writer.write("\n");		
+		}					
+		writer.close();
 	}
 }
